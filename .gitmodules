@@ -1,0 +1,6 @@
+[submodule "src/f1tenth_gym_ros"]
+	path = src/f1tenth_gym_ros
+	url = https://github.com/vaul-ulaval/f1tenth_gym_ros.git
+[submodule "src/particle_filter"]
+	path = src/particle_filter
+	url = https://github.com/vaul-ulaval/particle_filter.git
