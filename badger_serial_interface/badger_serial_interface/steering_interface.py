@@ -4,55 +4,75 @@ import rclpy
 from rclpy.node import Node
 import serial
 from std_msgs.msg import Int64
-import re
 
 
-# Found in ls "/dev/serial/by-id/"
-stm_id = '/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_066FFF373146363143224542-if02'
+# STM32 serial device
+stm_id = '/dev/serial/by-id/usb-STMicroelectronics_STM32_STLink_066EFF373146363143225155-if02'
+
 
 class MyNode(Node):
+
     def __init__(self):
         super().__init__('serial_interface_publisher')
-        self.stm = serial.Serial()
-        self.stm.port = stm_id
-        self.stm.baudrate = 115200
-        self.stm.timeout = 2
-        self.stm.open()
 
-        self.status_publisher = self.create_publisher(Int64, '/badger/badger_status', 10)
+        self.stm = serial.Serial(
+            port=stm_id,
+            baudrate=921600,      # match STM32 code
+            timeout=0.1          # wait max 0.1s for data
+        )
 
+        self.status_publisher = self.create_publisher(
+            Int64,
+            '/badger/badger_status',
+            100
+        )
 
+        # Fast polling timer
+        self.timer = self.create_timer(
+            0.001,   # 1 kHz polling
+            self.state_publisher
+        )
 
     def state_publisher(self):
-        # Reads the serial bus and publishes the status on ros custom topic
-        if self.stm.in_waiting > 0:
-            try:
-                # Read line and decode
-                line = self.stm.readline().decode('utf-8').strip()
-                
-                # Regex to find "Steering amount: [number]"
-                match = re.search(r"Steering amount:\s*(\d+)", line)
-                
-                if match:
-                    raw_val = int(match.group(1))
-                    
-                    # Create and publish message
-                    msg = UInt64()
-                    msg.data = raw_val
-                    self.publisher_.publish(msg)
-                    
-                    # Optional: log the value
-                    # self.get_logger().info(f"Published: {raw_val}")
-                    
-            except Exception as e:
-                self.get_logger().warn(f"Error parsing serial: {e}")
+        # This function will check the usb bus until a packet is received upond reception
+        #the packet is processed and published as an angle matched to the real polynomial behavior of the steering axis
+
+        try:
+            
+            self.stm.reset_input_buffer()
+
+            # read exactly 2 bytes or timeout
+            data = self.stm.read(2)
+
+            if len(data) == 2:
+                val = data[0] | ((data[1] & 0x0F) << 8)
+
+                msg = Int64()
+                msg.data = val
+                self.status_publisher.publish(msg)
+
+        except Exception as e:
+            self.get_logger().warn(f"Serial read error: {e}")
 
 
 def main(args=None):
     rclpy.init(args=args)
+
     node = MyNode()
-    rclpy.spin(node)
-    rclpy.shutdown()
+
+    try:
+        rclpy.spin(node)
+
+    except KeyboardInterrupt:
+        pass
+
+    finally:
+        if node.stm.is_open:
+            node.stm.close()
+
+        node.destroy_node()
+        rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
