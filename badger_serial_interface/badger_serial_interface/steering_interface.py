@@ -3,6 +3,7 @@
 import rclpy
 from rclpy.node import Node
 import serial
+from collections import deque
 from std_msgs.msg import Int64
 
 
@@ -27,6 +28,10 @@ class MyNode(Node):
             100
         )
 
+        # Moving-average filter (window size configurable)
+        self.filter_window = 10
+        self._filter_buf: deque[int] = deque(maxlen=self.filter_window)
+
         # Fast polling timer
         self.timer = self.create_timer(
             0.001,   # 1 kHz polling
@@ -34,22 +39,39 @@ class MyNode(Node):
         )
 
     def state_publisher(self):
-        # This function will check the usb bus until a packet is received upond reception
-        #the packet is processed and published as an angle matched to the real polynomial behavior of the steering axis
+        # Reads 4-byte framed packets: [0xAA | low_byte | high_nibble | XOR_checksum]
+        # Resynchronises automatically if byte alignment is lost.
 
         try:
-            
-            self.stm.reset_input_buffer()
+            # Scan for the start marker 0xAA
+            byte = self.stm.read(1)
+            if len(byte) == 0 or byte[0] != 0xAA:
+                return   # nothing ready or out of sync – try again next tick
 
-            # read exactly 2 bytes or timeout
-            data = self.stm.read(2)
+            # Read the remaining 3 bytes of the packet
+            rest = self.stm.read(3)
+            if len(rest) != 3:
+                return   # incomplete packet
 
-            if len(data) == 2:
-                val = data[0] | ((data[1] & 0x0F) << 8)
+            low, high_nibble, checksum = rest[0], rest[1], rest[2]
 
-                msg = Int64()
-                msg.data = val
-                self.status_publisher.publish(msg)
+            # Validate XOR checksum
+            if (low ^ high_nibble) != checksum:
+                self.get_logger().warn(
+                    f"Checksum error: low=0x{low:02X} high=0x{high_nibble:02X} "
+                    f"expected=0x{low ^ high_nibble:02X} got=0x{checksum:02X}"
+                )
+                return
+
+            val = low | ((high_nibble & 0x0F) << 8)
+
+            # Apply moving-average filter
+            self._filter_buf.append(val)
+            filtered_val = int(sum(self._filter_buf) / len(self._filter_buf))
+
+            msg = Int64()
+            msg.data = filtered_val
+            self.status_publisher.publish(msg)
 
         except Exception as e:
             self.get_logger().warn(f"Serial read error: {e}")

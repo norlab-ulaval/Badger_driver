@@ -3,7 +3,7 @@
 #include "system_config.h"
 
 volatile uint16_t adc_value = 0;
-uint8_t txbuf[2];
+uint8_t txbuf[4];   // [0xAA | low_byte | high_nibble | XOR_checksum]
 
 
 int main(void)
@@ -40,12 +40,13 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
     {
         adc_value = HAL_ADC_GetValue(&hadc2);
 
-        // packaging 2bytes
-        txbuf[0] = adc_value & 0xFF;
-        txbuf[1] = (adc_value >> 8) & 0x0F;
-    
-        // Sending to UART bus / USB
+        // 4-byte framed packet: [start | low | high_nibble | checksum]
+        txbuf[0] = 0xAA;                          // start marker
+        txbuf[1] = adc_value & 0xFF;              // low byte
+        txbuf[2] = (adc_value >> 8) & 0x0F;       // high nibble (bits 8-11)
+        txbuf[3] = txbuf[1] ^ txbuf[2];           // XOR checksum
 
-        HAL_UART_Transmit(&huart2, txbuf, 2, 1);
+        // Sending to UART bus / USB
+        HAL_UART_Transmit(&huart2, txbuf, 4, 1);
     }
 }
