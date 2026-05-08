@@ -54,7 +54,7 @@ void MX_ADC1_Init(void)
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
     hadc2.Instance = ADC2;
-    hadc2.Init.ClockPrescaler        = ADC_CLOCK_SYNC_PCLK_DIV4;
+    hadc2.Init.ClockPrescaler       = ADC_CLOCK_SYNC_PCLK_DIV4;
     hadc2.Init.Resolution           = ADC_RESOLUTION_12B;
     hadc2.Init.DataAlign            = ADC_DATAALIGN_RIGHT;
     hadc2.Init.ScanConvMode         = ADC_SCAN_DISABLE;
