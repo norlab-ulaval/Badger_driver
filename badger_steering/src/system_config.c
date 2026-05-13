@@ -3,6 +3,7 @@
 // Hardware identifier INIT
 UART_HandleTypeDef huart2;
 ADC_HandleTypeDef hadc2;
+ADC_HandleTypeDef hadc1;
 TIM_HandleTypeDef htim6;
 
 // oscillator setup basic clock speed used here
@@ -36,11 +37,57 @@ void SystemClock_Config(void)
 }
 
 
+// Configuring the A0 pin(physical layout) or PA0 (chip layout) for analog readings
+// The pin is then connected to ADC1 
+// and a timer interrupt(tim6) assures constant frequency sampling
+
+void MX_ADC1_Init(void)
+{
+    ADC_ChannelConfTypeDef sConfig = {0};
+
+    __HAL_RCC_ADC12_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin  = GPIO_PIN_0;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    hadc1.Instance = ADC1;
+    hadc1.Init.ClockPrescaler       = ADC_CLOCK_SYNC_PCLK_DIV4;
+    hadc1.Init.Resolution           = ADC_RESOLUTION_12B;
+    hadc1.Init.DataAlign            = ADC_DATAALIGN_RIGHT;
+    hadc1.Init.ScanConvMode         = ADC_SCAN_DISABLE;
+    hadc1.Init.EOCSelection         = ADC_EOC_SINGLE_CONV;
+    hadc1.Init.LowPowerAutoWait     = DISABLE;
+    hadc1.Init.ContinuousConvMode   = DISABLE;
+    hadc1.Init.NbrOfConversion      = 1;
+    hadc1.Init.DiscontinuousConvMode= DISABLE;
+
+    // Triggered by the Tim6 configed lower 
+    hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T6_TRGO;
+    hadc1.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_RISING;
+
+    // Instance of ADC 2 configured with the mentionned parameters above
+    HAL_ADC_Init(&hadc1);
+    // Refer to photo in ReadMe
+    sConfig.Channel      = ADC_CHANNEL_1;   
+    sConfig.Rank         = ADC_REGULAR_RANK_1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_19CYCLES_5;
+
+    HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+
+    
+}
+
+
+
 // Configuring the A5 pin(physical layout) or PA6(Chip layout) for analog readings
 // The pin is then connected to ADC2 
 // and a timer interrupt(tim6) assures constant frequency sampling
 
-void MX_ADC1_Init(void)
+void MX_ADC2_Init(void)
 {
     ADC_ChannelConfTypeDef sConfig = {0};
 
@@ -144,6 +191,18 @@ void MX_TIM6_Init(void)
 
 
 
+// Builds a 6-byte framed packet combining both ADC channels:
+// [0xAA | adc1_low | adc1_high_nibble | adc2_low | adc2_high_nibble | XOR_checksum]
+void Create_Tx_buffer(uint16_t adc1, uint16_t adc2, uint8_t *buffer)
+{
+    buffer[0] = 0xAA;
+    buffer[1] = (uint8_t)(adc1 & 0xFF);
+    buffer[2] = (uint8_t)((adc1 >> 8) & 0x0F);
+    buffer[3] = (uint8_t)(adc2 & 0xFF);
+    buffer[4] = (uint8_t)((adc2 >> 8) & 0x0F);
+    buffer[5] = buffer[1] ^ buffer[2] ^ buffer[3] ^ buffer[4];
+}
+
 void SysTick_Handler(void)
 {
     HAL_IncTick();
@@ -156,5 +215,7 @@ void TIM6_DAC_IRQHandler(void)
 
 void ADC1_2_IRQHandler(void)
 {
+    // Both ADC1 and ADC2 share this IRQ — service both so their callbacks fire
+    HAL_ADC_IRQHandler(&hadc1);
     HAL_ADC_IRQHandler(&hadc2);
 }
