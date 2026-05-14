@@ -19,14 +19,14 @@ badger_steering
 # Mcu BareMetal configuration
 
 
-The board used for this project is the nucleo_f303k8 STM 32 based MCU. See ```system_config.c``` for full details Note that the following piout mapping was used for the ADC configuration:
+The board used for this project is the nucleo_f303k8 STM 32 based MCU. See ```system_config.c``` for full details Note that the following pinout mapping was used for the ADC configuration:
 
 
 <img width="753" height="564" alt="image" src="https://github.com/user-attachments/assets/83dcc2ae-922f-49e5-af3c-f8ded9949aa1" />
 
 
 
-# Noise analysis and PCB conception (TODO)
+# Noise analysis and PCB conception 
 
 
 
@@ -51,12 +51,26 @@ We can clearly observe the first peak on the frequency axis as 17kHz which I is 
 
 ## Sallen Key filter devellopement
 
-[link to PCB file]
 
 To lower the impact of the PWM's noise on our steering data, we need to ceonceive a lowpasss filter to acheive enough attenuation, the pass band limit was established as 500 Hz (1kHz sampling frequency on STM32). Again choosing a 2nd order filter for simplicity would mean with this critical frequency value that our attenuation of the main noise component would be at least over 60db or 1/1000 which is largely enough.
 
 
 TODO calculations of the passive values
+
+
+
+## PCB conception
+
+The following schematic includes a PCB integrating the previously mentionned filters connected to feedback potentiometers linked to the trailer of the badger platform. It also includes an optional header array to connect an MCU to enable serial interfacing with a computer and ros2.
+
+
+
+
+
+<img width="1219" height="871" alt="image" src="https://github.com/user-attachments/assets/6422cdda-fa4a-48ba-9763-53173c14c926" />
+
+
+
 
 
 
