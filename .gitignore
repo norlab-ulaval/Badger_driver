@@ -2,7 +2,7 @@ build/*
 install/*
 log/*
 site/*
-.vscode/*
+*/.vscode/*
 badger_steering/.vscode/*
 badger_steering/build/*
 badger_steering/install/*
