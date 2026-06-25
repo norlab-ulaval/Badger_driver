@@ -1,0 +1,35 @@
+{
+    "ROS2.distro": "jazzy",
+    "python.autoComplete.extraPaths": [
+        "/home/benoit/ros_ws/build/usb_comms_test",
+        "/home/benoit/ros_ws/install/usb_comms_test/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/build/test_geometry",
+        "/home/benoit/ros_ws/install/test_geometry/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/smartec_motor_driver/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/smartec_msgs/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/build/rosboard",
+        "/home/benoit/ros_ws/install/rosboard/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/diagnostic_common_diagnostics/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/diagnostic_updater/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/diagnostic_aggregator/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/build/badger_serial_interface",
+        "/home/benoit/ros_ws/install/badger_serial_interface/lib/python3.12/site-packages",
+        "/opt/ros/jazzy/lib/python3.12/site-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/benoit/ros_ws/build/usb_comms_test",
+        "/home/benoit/ros_ws/install/usb_comms_test/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/build/test_geometry",
+        "/home/benoit/ros_ws/install/test_geometry/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/smartec_motor_driver/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/smartec_msgs/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/build/rosboard",
+        "/home/benoit/ros_ws/install/rosboard/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/diagnostic_common_diagnostics/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/diagnostic_updater/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/install/diagnostic_aggregator/lib/python3.12/site-packages",
+        "/home/benoit/ros_ws/build/badger_serial_interface",
+        "/home/benoit/ros_ws/install/badger_serial_interface/lib/python3.12/site-packages",
+        "/opt/ros/jazzy/lib/python3.12/site-packages"
+    ]
+}

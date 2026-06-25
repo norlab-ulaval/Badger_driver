@@ -1,0 +1,27 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${workspaceFolder}/.vscode/browse.vc.db",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/benoit/ros_ws/install/teleop_twist_joy/include/**",
+        "/home/benoit/ros_ws/install/smartec_msgs/include/**",
+        "/home/benoit/ros_ws/install/self_test/include/**",
+        "/home/benoit/ros_ws/install/diagnostic_updater/include/**",
+        "/home/benoit/ros_ws/install/diagnostic_aggregator/include/**",
+        "/opt/ros/jazzy/include/**",
+        "/home/benoit/ros_ws/src/badger_msgs/include/**",
+        "include/**",
+        "/usr/include/**"
+      ],
+      "name": "ros2",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++17"
+    }
+  ],
+  "version": 4
+}
