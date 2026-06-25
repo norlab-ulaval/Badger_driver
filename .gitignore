@@ -4,3 +4,9 @@ log/*
 site/*
 .vscode/*
 badger_steering/.vscode/*
+badger_steering/build/*
+badger_steering/install/*
+badger_steering/log/*
+badger_steering/src/badger_steering.code-workspace
+badger_steering/tools/*
+.vscode/settings.json

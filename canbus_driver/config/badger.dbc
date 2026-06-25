@@ -1,0 +1,11 @@
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_:
+
+BO_ 291 ENCODER_DATA: 5 Vector__XXX
+ SG_ SPEED : 0|32@1+ (1,0) [0|0] "ticks/s" Vector__XXX
+ SG_ DIRECTION : 32|8@1+ (1,0) [0|1] "" Vector__XXX

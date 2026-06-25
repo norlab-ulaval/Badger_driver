@@ -71,5 +71,6 @@
         ".vscode-insiders",
         ".devcontainer/devcontainer.json"
     ],
-    "C_Cpp.default.compilerPath": "/usr/bin/gcc"
+    "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+    "ROS2.distro": "jazzy"
 }
