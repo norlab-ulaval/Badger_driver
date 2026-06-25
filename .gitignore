@@ -11,3 +11,4 @@ badger_steering/src/badger_steering.code-workspace
 badger_steering/tools/*
 badger_serial_interface/badger_serial_interface/__pycache__/*
 badger_msgs/.vscode/*
+*/.vscode/*
