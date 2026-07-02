@@ -58,7 +58,8 @@ class RoboteqVelocitySender(Node):
         self.rx_timer = self.create_timer(0.02, self._read_can)  # 50 Hz RX drain
 
         # ── Publisher ────────────────────────────────────────────────────────────
-        self.yaw_pub = self.create_publisher(Int32, 'articulation/sensor/yaw', 10)
+
+        self.init_pubs()
 
         self.get_logger().info(
             f"Ready — node_id={self.node_id}, cmd_mode='{self.cmd_mode}', "
@@ -107,8 +108,8 @@ class RoboteqVelocitySender(Node):
         # frame_id of each ROBOTEQ_* message IS the CANopen object index.
         # Sub-index is always 0x01 (channel 1).  SDO CS byte is 0x23 (4-byte exp.).
         self.db       = cantools.database.load_file(self.dbc_path)
-        dbc_msg_name  = _CMD_DBC_NAME[self.cmd_mode]
-        self.cmd_msg  = self.db.get_message_by_name(dbc_msg_name)
+        self.cmd_msg  = self.db.get_message_by_name(f"{_CMD_DBC_NAME[self.cmd_mode]}")
+        self.encoder_msg = self.db.get_message_by_name('ENCODER_DATA')
         self.obj_index = self.cmd_msg.frame_id   # e.g. 0x2000 for cango
         self.obj_sub   = 0x01                    # channel 1, always sub-index 1
 
@@ -124,12 +125,6 @@ class RoboteqVelocitySender(Node):
             (self.obj_index >> 8) & 0xFF,
             self.obj_sub,
         ])
-
-        self.get_logger().info(
-            f"DBC: '{dbc_msg_name}' — "
-            f"CANopen Object 0x{self.obj_index:04X}:{self.obj_sub:02X}, "
-            f"SDO CAN ID=0x{self.sdo_tx_id:03X}"
-        )
 
         # ── CAN bus ─────────────────────────────────────────────────────────────
         self.get_logger().info(f"Opening CAN interface: {self.can_interface}")
@@ -164,6 +159,7 @@ class RoboteqVelocitySender(Node):
         self.timer = self.create_timer(1.0 / self.send_rate_hz, self._send_velocity)
 
         # ── Publisher ────────────────────────────────────────────────────────────
+        self.speed_pub = self.create_publisher(Int32, 'encoder/speed', 10)
         self.yaw_pub = self.create_publisher(Int32, 'articulation/sensor/yaw', 10)
 
 
@@ -206,6 +202,13 @@ class RoboteqVelocitySender(Node):
             raw = self.bus.recv(timeout=0.0)
             if raw is None:
                 break
+            if raw.arbitration_id == self.encoder_msg.frame_id:
+                decoded = self.db.decode_message(raw.arbitration_id, raw.data)
+                direction = bool(decoded['DIRECTION'])
+                sign = 1 if direction else -1
+                speed_msg = Int32()
+                speed_msg.data = int(decoded['SPEED']) * sign
+                self.speed_pub.publish(speed_msg)
 
             if raw.arbitration_id == self.pos_cob_id and self.pos_msg is not None:
                 # ── TPDO1: position feedback ─────────────────────────────────────
