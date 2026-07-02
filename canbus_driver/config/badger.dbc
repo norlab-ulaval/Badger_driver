@@ -1,11 +1,49 @@
 VERSION ""
 
 NS_ :
+    BA_
+    BA_DEF_
+    BA_DEF_DEF_REL_
+    BA_DEF_REL_
+    BA_SG_REL_
+    BU_
 
 BS_:
 
-BU_:
+BU_: ROS2_DRIVER_BADGER_PLATFORM
 
 BO_ 291 ENCODER_DATA: 5 Vector__XXX
  SG_ SPEED : 0|32@1+ (1,0) [0|0] "ticks/s" Vector__XXX
  SG_ DIRECTION : 32|8@1+ (1,0) [0|1] "" Vector__XXX
+
+BO_ 385 ARTICULATION_FEEDBACK: 8 Roborun
+ SG_ YAW_POT : 0|32@1+ (1,0) [0|65535] "" ROS2_Controller
+ SG_ PITCH_POT : 32|32@1+ (1,0) [0|65535] "" ROS2_Controller
+
+BO_ 1537 CMD_CH1: 4 Vector__XXX
+	SG_ ART_SPEED : 0|32@1- (1,0) [-1000|1000] "rpm" Vector__XXX
+
+BO_ 2147491840 ROBOTEQ_CANGO: 4 Vector__XXX
+ SG_ Ch1_Value : 0|32@1- (1,0) [-1000|1000] "" Vector__XXX
+
+BO_ 2147491842 ROBOTEQ_MOTVEL: 4 Vector__XXX
+ SG_ Ch1_Value : 0|32@1- (1,0) [-2147483648|2147483647] "rpm" Vector__XXX
+
+CM_ BO_ 2147491840 "Roboteq Cmd_CANGO — CANopen Object 0x2000:01. Serial equiv: !G 1 <value>. Works in ALL modes. Open Loop: -1000..+1000 (percent of max power).";
+CM_ BO_ 2147491842 "Roboteq Cmd_MOTVEL — CANopen Object 0x2002:01. Serial equiv: !S 1 <value>. ONLY Closed Loop SPEED mode. Value = RPM setpoint.";
+
+BA_DEF_ BO_ "CANopen_Index" HEX 0 65535;
+BA_DEF_ BO_ "CANopen_Subindex" HEX 0 255;
+BA_DEF_ BO_ "SDO_CS" HEX 0 255;
+
+BA_DEF_DEF_ "CANopen_Index" 0;
+BA_DEF_DEF_ "CANopen_Subindex" 1;
+BA_DEF_DEF_ "SDO_CS" 35;
+
+BA_ "CANopen_Index" BO_ 2147491840 8192;
+BA_ "CANopen_Subindex" BO_ 2147491840 1;
+BA_ "SDO_CS" BO_ 2147491840 35;
+
+BA_ "CANopen_Index" BO_ 2147491842 8194;
+BA_ "CANopen_Subindex" BO_ 2147491842 1;
+BA_ "SDO_CS" BO_ 2147491842 35;

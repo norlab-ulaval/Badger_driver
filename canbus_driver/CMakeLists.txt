@@ -15,7 +15,6 @@ find_package(ament_cmake_python REQUIRED) # 3. CRITICAL: Required for ament_pyth
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(badger_msgs REQUIRED)
 
 include_directories(include)
 
@@ -27,6 +26,16 @@ include_directories(include)
 # Install Python executables
 install(PROGRAMS
   scripts/canbus_driver.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  scripts/steering_can.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  scripts/roboteq_velocity_sender.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
