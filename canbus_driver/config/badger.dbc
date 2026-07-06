@@ -12,6 +12,9 @@ BS_:
 
 BU_: ROS2_DRIVER_BADGER_PLATFORM
 
+BO_ 256 PWM_CMD: 2 ROS2_DRIVER_BADGER_PLATFORM
+ SG_ Duty_Value : 0|16@1+ (1,0) [0|1023] "" Vector__XXX
+
 BO_ 291 ENCODER_DATA: 5 Vector__XXX
  SG_ SPEED : 0|32@1+ (1,0) [0|0] "ticks/s" Vector__XXX
  SG_ DIRECTION : 32|8@1+ (1,0) [0|1] "" Vector__XXX
@@ -29,6 +32,7 @@ BO_ 2147491840 ROBOTEQ_CANGO: 4 Vector__XXX
 BO_ 2147491842 ROBOTEQ_MOTVEL: 4 Vector__XXX
  SG_ Ch1_Value : 0|32@1- (1,0) [-2147483648|2147483647] "rpm" Vector__XXX
 
+CM_ BO_ 256 "Raw PWM duty cycle command — 2 bytes, little-endian uint16_t, range 0-1023.";
 CM_ BO_ 2147491840 "Roboteq Cmd_CANGO — CANopen Object 0x2000:01. Serial equiv: !G 1 <value>. Works in ALL modes. Open Loop: -1000..+1000 (percent of max power).";
 CM_ BO_ 2147491842 "Roboteq Cmd_MOTVEL — CANopen Object 0x2002:01. Serial equiv: !S 1 <value>. ONLY Closed Loop SPEED mode. Value = RPM setpoint.";
 

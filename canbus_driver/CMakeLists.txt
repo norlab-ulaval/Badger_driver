@@ -35,7 +35,7 @@ install(PROGRAMS
 )
 
 install(PROGRAMS
-  scripts/roboteq_velocity_sender.py
+  scripts/baby_driver.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
