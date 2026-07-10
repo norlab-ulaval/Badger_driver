@@ -1,22 +1,5 @@
 #!/usr/bin/env python3
-"""
-Roboteq velocity command sender — sends a constant velocity via CANopen SDO.
 
-Why SDO
-  The EDS default maps RPDO1 to Cmd_VAR (Object 0x2005, VAR[9]/VAR[10]).
-  VAR[n] are just user integer variables; the motor ignores them without a
-  MicroBasic script reading and forwarding them.
-
-  Solution: write directly to Object 0x2002:01 (Cmd_MOTVEL "Set Velocity")
-  via SDO.  This is the exact CANopen equivalent of the serial !S command that can e executed from the roborun+ console.
-  No MicroBasic script, no PDO remapping required.
-
-SDO frame  (CAN ID = 0x600 + node_id):
-  byte 0   : 0x23       ← expedited download, 4 data bytes
-  bytes 1-2: 0x02 0x20  ← object index 0x2002 (little-endian)
-  byte 3   : 0x01       ← sub-index 1 = channel 1
-  bytes 4-7: velocity   ← INT32, little-endian
-"""
 
 import struct
 import time
@@ -29,13 +12,21 @@ import cantools
 import struct as _s
 import os
 from ament_index_python.packages import get_package_share_directory
+from geometry_msgs.msg import Twist
 
 _CMD_DBC_NAME = {
-    'cango':  'ROBOTEQ_CANGO',   # Object 0x2000:01 — !G, all modes
-    'motvel': 'ROBOTEQ_MOTVEL',  # Object 0x2002:01 — !S, closed-loop speed only
+    'cango':   'ROBOTEQ_CANGO',   # Object 0x2000:01 — !G,  all modes
+    'motpos':  'ROBOTEQ_MOTPOS',  # Object 0x2001:01 — !P,  closed-loop position (absolute)
+    'mposrel': 'ROBOTEQ_MPOSREL', # Object 0x200F:01 — !PR, closed-loop position (relative)
+    'motvel':  'ROBOTEQ_MOTVEL',  # Object 0x2002:01 — !S,  closed-loop speed only
 }
 # CANopen SDO expedited download command specifier for 4-byte payload
 _SDO_CS_4B = 0x23
+
+# PWM channel (CAN ID 0x100, → ESP32) limits. Signed: negative = reverse
+# direction on the ESP32 (GPIO 25 driven HIGH there), magnitude drives the
+# PWM duty cycle.
+_PWM_MAX_DUTY = 1023
 
 
 class RoboteqVelocitySender(Node):
@@ -73,8 +64,6 @@ class RoboteqVelocitySender(Node):
         self.declare_parameter('dbc_path', default_dbc)
         self.declare_parameter('can_interface', 'can32')
         self.declare_parameter('node_id', 1)
-        # 'cango'  = !G, works in ALL modes  (open-loop: -1000..+1000 % power)
-        # 'motvel' = !S, ONLY works in Closed Loop SPEED mode
         self.declare_parameter('cmd_mode', 'cango')
         # Seconds without a topic message before the motor is zeroed (watchdog)
         self.declare_parameter('cmd_timeout_s', 0.5)
@@ -95,8 +84,9 @@ class RoboteqVelocitySender(Node):
         self._last_pwm_time = None
 
         if self.cmd_mode not in _CMD_DBC_NAME:
-            raise ValueError(f"cmd_mode must be one of {list(_CMD_DBC_NAME)}, got '{self.cmd_mode}'")
-
+            raise ValueError(
+                f"cmd_mode must be one of {list(_CMD_DBC_NAME)}, got '{self.cmd_mode}'"
+            )
 
 
 
@@ -105,12 +95,13 @@ class RoboteqVelocitySender(Node):
         # ── Load DBC and look up the command message for the selected mode ───────
         # frame_id of each ROBOTEQ_* message IS the CANopen object index.
         # Sub-index is always 0x01 (channel 1).  SDO CS byte is 0x23 (4-byte exp.).
-        self.db       = cantools.database.load_file(self.dbc_path)
-        self.cmd_msg  = self.db.get_message_by_name(f"{_CMD_DBC_NAME[self.cmd_mode]}")
+        self.db          = cantools.database.load_file(self.dbc_path)
+        dbc_msg_name     = _CMD_DBC_NAME[self.cmd_mode]
+        self.cmd_msg     = self.db.get_message_by_name(dbc_msg_name)
         self.encoder_msg = self.db.get_message_by_name('ENCODER_DATA')
-        self.pwm_msg  = self.db.get_message_by_name('PWM_CMD')
-        self.obj_index = self.cmd_msg.frame_id   # e.g. 0x2000 for cango
-        self.obj_sub   = 0x01                    # channel 1, always sub-index 1
+        self.pwm_msg     = self.db.get_message_by_name('PWM_CMD')
+        self.obj_index   = self.cmd_msg.frame_id   # = CANopen object index
+        self.obj_sub     = 0x01
 
         # SDO CAN IDs (computed from node_id at runtime)
         self.sdo_tx_id   = 0x600 + self.node_id   # request  (master → slave)
@@ -131,20 +122,25 @@ class RoboteqVelocitySender(Node):
 
         # TPDO1 receive: 0x180 + node_id  (position feedback)
         self.pos_cob_id = 0x180 + self.node_id   # 0x181 for node_id=1
-
         self.pos_msg = self.db.get_message_by_name('ARTICULATION_FEEDBACK')
-        self.get_logger().info(
-            f"TPDO1 listener: CAN ID=0x{self.pos_cob_id:03X} "
-            f"→ topic /position_181"
+
+        # ── NMT Start Node ────────────────────────────────────────────────────
+        # Roboteq boots in Pre-Operational state.  Send NMT Start to transition
+        # to Operational, which enables motion commands via SDO / PDO.
+        # CAN ID 0x000, data [0x01, node_id]  (or 0x00 = all nodes)
+        self.get_logger().info(f"Sending NMT Start Node → node_id={self.node_id}")
+        nmt_start = can.Message(
+            arbitration_id=0x000,
+            data=bytes([0x01, self.node_id]),
+            is_extended_id=False,
         )
+        self.bus.send(nmt_start)
+        time.sleep(0.1)   # give the controller time to transition to Operational
 
 
     def init_subs(self):
         self.sub = self.create_subscription(
-            Int32, 'cmd_ch1', self._cmd_callback, 10
-        )
-        self.pwm_sub = self.create_subscription(
-            Int32, '/cmd/vel', self._pwm_callback, 10
+            Twist, '/cmd_vel', self._cmd_callback, 10
         )
 
 
@@ -166,16 +162,20 @@ class RoboteqVelocitySender(Node):
         self.pub_pwm_100 = self.create_publisher(Int32, 'can/fb_100', 10)
 
 
-    def _cmd_callback(self, msg: Int32) -> None:
-        self.vel_cmd        = msg.data
+    def _cmd_callback(self, msg: Twist) -> None:
+        self.vel_cmd        = msg.angular.z * 1000
+        # Signed: negative linear.x → reverse (ESP32 drives GPIO 25 HIGH and
+        # takes fabs() of this value for the PWM duty). Previously clamped
+        # to [0, 1023], which silently discarded direction.
+        self._pwm_cmd       = max(-_PWM_MAX_DUTY, min(_PWM_MAX_DUTY, msg.linear.x * 1000))
         self._last_cmd_time = time.monotonic()
+        self._last_pwm_time = time.monotonic()
+
+
         self.get_logger().info(f"cmd_ch1 → {self.vel_cmd}")
 
     def _send_velocity(self) -> None:
-        """
-        Send a command to channel 1 via SDO expedited write.
-        Sends 0 if no message has been received on /cmd_ch1 within cmd_timeout_s.
-        """
+
         stale = (
             self._last_cmd_time is None
             or (time.monotonic() - self._last_cmd_time) > self._cmd_timeout
@@ -185,17 +185,31 @@ class RoboteqVelocitySender(Node):
         val_bytes = self.cmd_msg.encode({'Ch1_Value': value})
         payload   = self._sdo_header + bytes(val_bytes)
 
-        self._send_can(payload, self.cmd_msg.frame_id)
-
-    def _pwm_callback(self, msg: Int32) -> None:
-        self._pwm_cmd       = max(0, min(1023, msg.data))  # clamp to valid range
-        self._last_pwm_time = time.monotonic()
+        try:
+            self.bus.send(can.Message(
+                arbitration_id=self.sdo_tx_id,
+                data=payload,
+                is_extended_id=False,
+            ))
+        except can.CanError as e:
+            self.get_logger().error(f"CAN send error: {e}")
+            return
 
     def _send_pwm(self) -> None:
         """
         Send PWM duty cycle on CAN ID 0x100.
-        Format: 2 bytes, little-endian uint16_t, range 0-1023.
-        Sends 0 if /cmd/vel has gone silent for longer than cmd_timeout_s (watchdog).
+        Format: 2 bytes, little-endian *signed* int16, range -1023..1023.
+        Negative values command reverse direction on the ESP32 (GPIO 25
+        HIGH there); the ESP32 takes fabs() of the value for the actual
+        duty cycle written to the PWM pin.
+        Sends 0 if /cmd_vel has gone silent for longer than cmd_timeout_s (watchdog).
+
+        NOTE: packed manually with struct rather than via cantools'
+        pwm_msg.encode(), because the DBC's Duty_Value signal is very
+        likely defined as unsigned — encoding a negative number through it
+        could raise or silently wrap. If you update the DBC to mark
+        Duty_Value as signed, you can switch back to
+        self.pwm_msg.encode({'Duty_Value': value}).
         """
         stale = (
             self._last_pwm_time is None
@@ -203,14 +217,15 @@ class RoboteqVelocitySender(Node):
         )
         value = 0 if stale else self._pwm_cmd
 
-        payload = self.pwm_msg.encode({'Duty_Value': value})
+        value = max(-_PWM_MAX_DUTY, min(_PWM_MAX_DUTY, int(value)))
+        payload = _s.pack('<h', value)
 
         self._send_can(payload, self.pwm_msg.frame_id)
 
     def _send_can(self, data, id):
 
         """
-        Sends a frame on the bus while and logs that might come up from the hardware 
+        Sends a frame on the bus and logs that might come up from the hardware 
         """
 
         try:
@@ -233,12 +248,18 @@ class RoboteqVelocitySender(Node):
             if raw is None:
                 break
             if raw.arbitration_id == self.encoder_msg.frame_id:
-                decoded = self.db.decode_message(raw.arbitration_id, raw.data)
-                direction = bool(decoded['DIRECTION'])
-                sign = 1 if direction else -1
+                if len(raw.data) == 4:
+                    # ESP32 sends IEEE-754 float32 RPM, little-endian
+                    rpm = _s.unpack('<f', bytes(raw.data))[0]
+                else:
+                    self.get_logger().warn(
+                        f"ENCODER_DATA: unexpected length {len(raw.data)}, skipping"
+                    )
+                    continue
                 speed_msg = Int32()
-                speed_msg.data = int(decoded['SPEED']) * sign
+                speed_msg.data = round(rpm)
                 self.speed_pub.publish(speed_msg)
+                self.get_logger().debug(f"encoder RPM={rpm:.2f}")
 
             if raw.arbitration_id == self.pos_cob_id and self.pos_msg is not None:
                 #  TPDO1: position feedback configured on the controller as yaw
@@ -253,18 +274,28 @@ class RoboteqVelocitySender(Node):
                 except Exception as e:
                     self.get_logger().warn(f"Decode 0x{self.pos_cob_id:03X} error: {e}")
 
-            elif raw.arbitration_id == self.sdo_rx_id and raw.data[0] == 0x80:
-                #  SDO abort response canOpen trouble shooting
-                code = _s.unpack('<I', bytes(raw.data[4:8]))[0]
-                hint = {
-                    0x06010002: "object is read-only",
-                    0x06020000: "object does not exist",
-                    0x08000000: "general device error",
-                }.get(code, "")
-                self.get_logger().error(
-                    f"SDO abort 0x{code:08X} {hint} — "
-                    f"try cmd_mode:='motvel' if using closed-loop speed mode"
-                )
+            elif raw.arbitration_id == self.sdo_rx_id:
+                cs = raw.data[0]
+                if cs == 0x60:
+                    self.get_logger().info(
+                        f"SDO ACK  ← 0x{self.sdo_rx_id:03X}  [{raw.data.hex(' ')}]"
+                    )
+                elif cs == 0x80:
+                    code = _s.unpack('<I', bytes(raw.data[4:8]))[0]
+                    hint = {
+                        0x06010002: "object is read-only",
+                        0x06020000: "object does not exist",
+                        0x06040041: "object cannot be mapped to PDO",
+                        0x08000000: "general device error",
+                    }.get(code, "unknown")
+                    self.get_logger().error(
+                        f"SDO ABORT ← 0x{self.sdo_rx_id:03X}  "
+                        f"0x{code:08X} ({hint})  raw=[{raw.data.hex(' ')}]"
+                    )
+                else:
+                    self.get_logger().warn(
+                        f"Unexpected SDO response cs=0x{cs:02X}  [{raw.data.hex(' ')}]"
+                    )
 
     def destroy_node(self):
         self.bus.shutdown()

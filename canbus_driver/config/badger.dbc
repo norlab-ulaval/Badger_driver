@@ -13,11 +13,10 @@ BS_:
 BU_: ROS2_DRIVER_BADGER_PLATFORM
 
 BO_ 256 PWM_CMD: 2 ROS2_DRIVER_BADGER_PLATFORM
- SG_ Duty_Value : 0|16@1+ (1,0) [0|1023] "" Vector__XXX
+ SG_ Duty_Value : 0|16@1- (1,0) [-1024|1023] "" Vector__XXX
 
-BO_ 291 ENCODER_DATA: 5 Vector__XXX
- SG_ SPEED : 0|32@1+ (1,0) [0|0] "ticks/s" Vector__XXX
- SG_ DIRECTION : 32|8@1+ (1,0) [0|1] "" Vector__XXX
+BO_ 291 ENCODER_DATA: 4 Vector__XXX
+ SG_ RPM_RAW : 0|32@1- (1,0) [-100000|100000] "rpm" Vector__XXX
 
 BO_ 385 ARTICULATION_FEEDBACK: 8 Roborun
  SG_ YAW_POT : 0|32@1+ (1,0) [0|65535] "" ROS2_Controller
@@ -29,11 +28,19 @@ BO_ 1537 CMD_CH1: 4 Vector__XXX
 BO_ 2147491840 ROBOTEQ_CANGO: 4 Vector__XXX
  SG_ Ch1_Value : 0|32@1- (1,0) [-1000|1000] "" Vector__XXX
 
+BO_ 2147491841 ROBOTEQ_MOTPOS: 4 Vector__XXX
+ SG_ Ch1_Value : 0|32@1- (1,0) [-2147483648|2147483647] "counts" Vector__XXX
+
+BO_ 2147491855 ROBOTEQ_MPOSREL: 4 Vector__XXX
+ SG_ Ch1_Value : 0|32@1- (1,0) [-2147483648|2147483647] "counts" Vector__XXX
+
 BO_ 2147491842 ROBOTEQ_MOTVEL: 4 Vector__XXX
  SG_ Ch1_Value : 0|32@1- (1,0) [-2147483648|2147483647] "rpm" Vector__XXX
 
 CM_ BO_ 256 "Raw PWM duty cycle command — 2 bytes, little-endian uint16_t, range 0-1023.";
 CM_ BO_ 2147491840 "Roboteq Cmd_CANGO — CANopen Object 0x2000:01. Serial equiv: !G 1 <value>. Works in ALL modes. Open Loop: -1000..+1000 (percent of max power).";
+CM_ BO_ 2147491841 "Roboteq Cmd_MOTPOS — CANopen Object 0x2001:01. Serial equiv: !P 1 <value>. ONLY Closed Loop POSITION mode. Value = encoder count setpoint.";
+CM_ BO_ 2147491855 "Roboteq Cmd_MPOSREL — CANopen Object 0x200F:01. Serial equiv: !PR 1 <value>. Closed Loop POSITION mode. Value = relative encoder count offset from current position.";
 CM_ BO_ 2147491842 "Roboteq Cmd_MOTVEL — CANopen Object 0x2002:01. Serial equiv: !S 1 <value>. ONLY Closed Loop SPEED mode. Value = RPM setpoint.";
 
 BA_DEF_ BO_ "CANopen_Index" HEX 0 65535;
@@ -47,6 +54,14 @@ BA_DEF_DEF_ "SDO_CS" 35;
 BA_ "CANopen_Index" BO_ 2147491840 8192;
 BA_ "CANopen_Subindex" BO_ 2147491840 1;
 BA_ "SDO_CS" BO_ 2147491840 35;
+
+BA_ "CANopen_Index" BO_ 2147491841 8193;
+BA_ "CANopen_Subindex" BO_ 2147491841 1;
+BA_ "SDO_CS" BO_ 2147491841 35;
+
+BA_ "CANopen_Index" BO_ 2147491855 8207;
+BA_ "CANopen_Subindex" BO_ 2147491855 1;
+BA_ "SDO_CS" BO_ 2147491855 35;
 
 BA_ "CANopen_Index" BO_ 2147491842 8194;
 BA_ "CANopen_Subindex" BO_ 2147491842 1;

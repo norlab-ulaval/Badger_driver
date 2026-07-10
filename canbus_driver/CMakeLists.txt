@@ -18,10 +18,6 @@ find_package(geometry_msgs REQUIRED)
 
 include_directories(include)
 
-# Install Python modules
-# NOTE: Only keep this line if you have a folder named 'smartec_motor_driver' 
-# inside your package root containing an __init__.py file. 
-# If 'canbus_driver.py' is just a standalone script, you can safely comment this out.
 
 # Install Python executables
 install(PROGRAMS
