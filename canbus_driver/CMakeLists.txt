@@ -26,11 +26,6 @@ install(PROGRAMS
 )
 
 install(PROGRAMS
-  scripts/steering_can.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(PROGRAMS
   scripts/baby_driver.py
   DESTINATION lib/${PROJECT_NAME}
 )

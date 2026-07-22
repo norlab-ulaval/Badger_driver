@@ -7,7 +7,7 @@ Run while the steering_interface node is active:
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Int64
+from std_msgs.msg import Int32
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -21,13 +21,13 @@ class SteeringPlotter(Node):
         super().__init__('steering_plotter')
         self._buf = deque(maxlen=WINDOW)
         self.create_subscription(
-            Int64,
-            '/badger/badger_status',
+            Int32,
+            '/sensor/speed',
             self._cb,
             100,
         )
 
-    def _cb(self, msg: Int64):
+    def _cb(self, msg: Int32):
         self._buf.append(msg.data)
 
 
