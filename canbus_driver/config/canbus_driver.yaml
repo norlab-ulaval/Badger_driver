@@ -1,9 +1,9 @@
-/**:
-  canbus_driver:
-    ros__parameters:
-      interface: "socketcan"
-      channel: "can32"
-      bitrate: 250000
-      max_speed: 500
-      min_speed: 100
-      
+canbus_driver:
+  ros__parameters:
+    can_interface: "can32"
+    # Feedback-only by default. This keeps /sensor/speed and /sensor/yaw while
+    # avoiding a geometry_msgs/Twist endpoint on the stamped MTT /cmd_vel.
+    enable_command_input: false
+    cmd_vel_topic: "/badger/cmd_vel_unstamped"
+    max_speed: 500
+    min_speed: 100
