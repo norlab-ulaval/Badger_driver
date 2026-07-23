@@ -36,8 +36,12 @@ class CanbusDriver(Node):
         )
 
         self.declare_parameter('dbc_path', default_dbc)
-        self.declare_parameter('can_interface', 'can0')
+        self.declare_parameter('can_interface', 'can32')
         self.declare_parameter('node_id', 1)
+        # Keep feedback available without creating a geometry_msgs/Twist
+        # endpoint on the MTT stack's geometry_msgs/TwistStamped /cmd_vel.
+        self.declare_parameter('enable_command_input', False)
+        self.declare_parameter('cmd_vel_topic', '/badger/cmd_vel_unstamped')
         # Seconds without a topic message before the motor is zeroed (watchdog)
         self.declare_parameter('cmd_timeout_s', 0.1)
         self.declare_parameter('send_rate_hz', 10.0)
@@ -49,6 +53,12 @@ class CanbusDriver(Node):
         self.dbc_path         = self.get_parameter('dbc_path').get_parameter_value().string_value
         self.can_interface    = self.get_parameter('can_interface').get_parameter_value().string_value
         self.node_id          = self.get_parameter('node_id').get_parameter_value().integer_value
+        self.enable_command_input = (
+            self.get_parameter('enable_command_input').get_parameter_value().bool_value
+        )
+        self.cmd_vel_topic    = (
+            self.get_parameter('cmd_vel_topic').get_parameter_value().string_value
+        )
         self._cmd_timeout     = self.get_parameter('cmd_timeout_s').get_parameter_value().double_value
         self.send_rate_hz     = self.get_parameter('send_rate_hz').get_parameter_value().double_value
         self.pwm_max_duty     = self.get_parameter('pwm_max_duty').get_parameter_value().integer_value
@@ -107,15 +117,32 @@ class CanbusDriver(Node):
         )
 
     def init_subs(self):
+        self.sub = None
+        if not self.enable_command_input:
+            self.get_logger().info(
+                'Command input disabled; running feedback-only without a cmd_vel subscription'
+            )
+            return
+
         self.sub = self.create_subscription(
-            Twist, '/cmd_vel', self._twist_callback, 10
+            Twist, self.cmd_vel_topic, self._twist_callback, 10
+        )
+        self.get_logger().info(
+            f'Command input enabled on {self.cmd_vel_topic} (geometry_msgs/Twist)'
         )
 
     def init_pubs(self):        
         # ── Timer ────────────────────────────────────────────────────────────────
-        self.timer     = self.create_timer(1.0 / self.send_rate_hz, self._send_steering)
         self.rx_timer  = self.create_timer(0.02, self._read_can)  # 50 Hz RX drain
-        self.pwm_timer = self.create_timer(1.0 / self.send_rate_hz, self._send_pwm)
+        self.timer = None
+        self.pwm_timer = None
+        if self.enable_command_input:
+            self.timer = self.create_timer(
+                1.0 / self.send_rate_hz, self._send_steering
+            )
+            self.pwm_timer = self.create_timer(
+                1.0 / self.send_rate_hz, self._send_pwm
+            )
 
         # ── Publisher ────────────────────────────────────────────────────────────
         self.speed_pub   = self.create_publisher(Float32, 'sensor/speed', 10)
@@ -180,6 +207,7 @@ class CanbusDriver(Node):
         except can.CanError as e:
             self.get_logger().error(f"General CAN send error on ID 0x{id:03X}: {e}")
 
+
     def _read_can(self) -> None:
         """
         Drain the RX buffer at 50 Hz.
@@ -189,13 +217,21 @@ class CanbusDriver(Node):
             if raw is None:
                 break
             if raw.arbitration_id == self.encoder_msg.frame_id:
-                if len(raw.data) == 4:
-                    rpm = self.encoder_msg.decode(raw.data)['RPM_RAW']
-
-                
-                speed_msg = Float32()
-                speed_msg.data = rpm
-                self.speed_pub.publish(speed_msg)
+                if len(raw.data) != self.encoder_msg.length:
+                    self.get_logger().warn(
+                        f"Encoder frame has DLC={len(raw.data)}, "
+                        f"expected {self.encoder_msg.length}"
+                    )
+                    continue
+                try:
+                    # cantools applies the DBC scale; RPM_RAW is therefore
+                    # already the physical longitudinal speed in m/s.
+                    speed_ms = float(self.encoder_msg.decode(raw.data)['RPM_RAW'])
+                    speed_msg = Float32()
+                    speed_msg.data = speed_ms
+                    self.speed_pub.publish(speed_msg)
+                except Exception as error:
+                    self.get_logger().warn(f"Encoder decode error: {error}")
 
             if raw.arbitration_id == self.pos_cob_id and self.pos_msg is not None:
                 # TPDO1: position feedback configured on the controller as yaw
@@ -211,8 +247,19 @@ class CanbusDriver(Node):
                     self.get_logger().warn(f"Decode 0x{self.pos_cob_id:03X} error: {e}")
 
             elif raw.arbitration_id == self.sdo_rx_id:
+                if len(raw.data) < 1:
+                    self.get_logger().warn(
+                        f"Empty SDO response on 0x{self.sdo_rx_id:03X}"
+                    )
+                    continue
                 cs = raw.data[0]                    
                 if cs == 0x80:
+                    if len(raw.data) < 8:
+                        self.get_logger().warn(
+                            f"Short SDO abort response on 0x{self.sdo_rx_id:03X}: "
+                            f"DLC={len(raw.data)}"
+                        )
+                        continue
                     code = _s.unpack('<I', bytes(raw.data[4:8]))[0]
                     hint = {
                         0x06010002: "object is read-only",
