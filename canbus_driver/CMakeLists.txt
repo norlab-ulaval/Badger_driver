@@ -26,6 +26,11 @@ install(PROGRAMS
 )
 
 install(PROGRAMS
+  scripts/identification_protocol.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(PROGRAMS
   scripts/baby_driver.py
   DESTINATION lib/${PROJECT_NAME}
 )

@@ -6,6 +6,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int32
 from std_msgs.msg import Float32
+from std_msgs.msg import Bool
 import can
 import cantools
 import struct as _s
@@ -36,18 +37,18 @@ class CanbusDriver(Node):
         )
 
         self.declare_parameter('dbc_path', default_dbc)
-        self.declare_parameter('can_interface', 'can0')
+        self.declare_parameter('chanel', 'can32')
         self.declare_parameter('node_id', 1)
         # Seconds without a topic message before the motor is zeroed (watchdog)
         self.declare_parameter('cmd_timeout_s', 0.1)
         self.declare_parameter('send_rate_hz', 10.0)
-        self.declare_parameter('pwm_max_duty', 1023)
-        self.declare_parameter('max_speed', 500)
-        self.declare_parameter('min_speed', 450)
+        self.declare_parameter('pwm_max_duty', 523)
+        self.declare_parameter('max_speed', 300)
+        self.declare_parameter('min_speed', 150)
         self.declare_parameter('max_steering', 1000)
 
         self.dbc_path         = self.get_parameter('dbc_path').get_parameter_value().string_value
-        self.can_interface    = self.get_parameter('can_interface').get_parameter_value().string_value
+        self.can_interface    = self.get_parameter('chanel').get_parameter_value().string_value
         self.node_id          = self.get_parameter('node_id').get_parameter_value().integer_value
         self._cmd_timeout     = self.get_parameter('cmd_timeout_s').get_parameter_value().double_value
         self.send_rate_hz     = self.get_parameter('send_rate_hz').get_parameter_value().double_value
@@ -57,11 +58,14 @@ class CanbusDriver(Node):
         self.max_steering     = self.get_parameter('max_steering').get_parameter_value().integer_value
 
         self.art_cmd        = 0    
+        self.last_art_cmd   = 0
         self._last_cmd_time = None  # time.monotonic() of last received message
 
         # PWM channel watchdog state
         self._pwm_cmd       = 0
         self._last_pwm_time = None
+
+        self.blocked_state = False
 
     def init_can(self):
         # ── Load DBC and look up the command messages ───────
@@ -98,7 +102,6 @@ class CanbusDriver(Node):
 
         # ── NMT Start Node 
         # Roboteq boots in Pre-Operational state. Send NMT Start to transition
-        # to Operational, which enables motion commands via SDO / PDO.
         self._send_can(bytes([0x01, self.node_id]), 0x000)
 
         time.sleep(0.1)   # give the controller time to transition to Operational
@@ -107,8 +110,12 @@ class CanbusDriver(Node):
         )
 
     def init_subs(self):
-        self.sub = self.create_subscription(
+        self.twist = self.create_subscription(
             Twist, '/cmd_vel', self._twist_callback, 10
+        )
+
+        self.block_steering = self.create_subscription(
+            Bool, '/block_steering', self._block_steering_callback, 10
         )
 
     def init_pubs(self):        
@@ -121,16 +128,36 @@ class CanbusDriver(Node):
         self.speed_pub   = self.create_publisher(Float32, 'sensor/speed', 10)
         self.yaw_pub     = self.create_publisher(Int32, 'sensor/yaw', 10)
 
+    def _block_steering_callback(self, msg : Bool) -> None:
+
+        self.blocked_state = msg.data
+
+
     def _twist_callback(self, msg: Twist) -> None:
         # Articulation is controlled in position from -1000 to 1000
-        self.art_cmd        = msg.angular.z * self.max_steering
+
+        if (self.blocked_state):
+            self.art_cmd = self.last_art_cmd
+        
+        else:
+            self.art_cmd        = msg.angular.z * self.max_steering
+            self.last_art_cmd = self.art_cmd
+
 
         # Signed: negative linear.x → reverse (ESP32 drives GPIO 25 HIGH and
         # takes fabs() of this value for the PWM duty)
         
+        lin = msg.linear.x
         joystick_deadzone = 0.3
 
-        self._pwm_cmd = (msg.linear.x - joystick_deadzone ) * (self.max_speed - self.min_speed) + self.min_speed
+        if lin == 0.0:
+            self._pwm_cmd = 0
+        else:
+            sign = 1 if lin > 0 else -1
+            mag = abs(lin)
+            scaled = (mag - joystick_deadzone) / (1.0 - joystick_deadzone)
+            scaled = max(0.0, min(1.0, scaled))  # clamp
+            self._pwm_cmd = sign * (self.min_speed + scaled * (self.max_speed - self.min_speed))
 
         
         self._last_cmd_time = time.monotonic()

@@ -1,0 +1,1 @@
+ros2 bag record -o ~/Desktop/my_bag /sensor/speed /cmd_vel
