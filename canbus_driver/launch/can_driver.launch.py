@@ -7,7 +7,7 @@ from launch.actions import (
     DeclareLaunchArgument,
     EmitEvent,
     ExecuteProcess,
-    LogError,
+    LogInfo,
     RegisterEventHandler,
 )
 from launch.event_handlers import OnProcessExit
@@ -54,7 +54,7 @@ def generate_launch_description():
         if event.returncode == 0:
             return [smartec_motor_driver]
         return [
-            LogError(msg=[
+            LogInfo(msg=[
                 "Failed to initialize ", can_iface, "; Badger driver will not start"
             ]),
             EmitEvent(event=Shutdown(reason="Badger CAN interface initialization failed")),
