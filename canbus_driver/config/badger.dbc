@@ -1,19 +1,19 @@
 VERSION ""
 
 NS_ :
-    BA_
-    BA_DEF_
-    BA_DEF_DEF_REL_
-    BA_DEF_REL_
-    BA_SG_REL_
-    BU_
+	BA_
+	BA_DEF_
+	BA_DEF_DEF_REL_
+	BA_DEF_REL_
+	BA_SG_REL_
+	BU_
 
 BS_:
 
 BU_: ROS2_DRIVER_BADGER_PLATFORM
 
-BO_ 256 PWM_CMD: 2 ROS2_DRIVER_BADGER_PLATFORM
- SG_ Duty_Value : 0|16@1- (1,0) [-1023|1023] "" Vector__XXX
+BO_ 256 PWM_CMD: 4 ROS2_DRIVER_BADGER_PLATFORM
+ SG_ Velocity_Target : 0|32@1- (1,0) [-100|100] "m/s" Vector__XXX
 
 BO_ 291 ENCODER_DATA: 4 Vector__XXX
  SG_ RPM_RAW : 0|32@1- (0.0020153846,0) [-100000|100000] "m/s" Vector__XXX
@@ -23,12 +23,12 @@ BO_ 385 ARTICULATION_FEEDBACK: 8 Roborun
  SG_ PITCH_POT : 32|32@1+ (1,0) [0|65535] "" ROS2_Controller
 
 BO_ 1537 ROBOTEQ_CH1: 8 Vector__XXX
-	SG_ ART_CMD : 32|16@1- (1,0) [-1000|1000] "ticks" Vector__XXX
+ SG_ ART_CMD : 32|16@1- (1,0) [-1000|1000] "ticks" Vector__XXX
 
 BO_ 2147491840 ROBOTEQ_CANGO: 4 Vector__XXX
  SG_ Ch1_Value : 0|32@1- (1,0) [-1000|1000] "" Vector__XXX
 
-CM_ BO_ 256 "Raw PWM duty cycle command — 2 bytes, little-endian uint16_t, range 0-1023.";
+CM_ BO_ 256 "Velocity target command — 4 bytes, little-endian IEEE-754 float in m/s.";
 CM_ BO_ 2147491840 "Roboteq Cmd_CANGO — CANopen Object 0x2000:01. Serial equiv: !G 1 <value>. Works in ALL modes. Open Loop: -1000..+1000 (percent of max power).";
 
 BA_DEF_ BO_ "CANopen_Index" HEX 0 65535;
@@ -55,4 +55,5 @@ BA_ "CANopen_Index" BO_ 2147491842 8194;
 BA_ "CANopen_Subindex" BO_ 2147491842 1;
 BA_ "SDO_CS" BO_ 2147491842 35;
 
+SIG_VALTYPE_ 256 Velocity_Target : 1;
 SIG_VALTYPE_ 291 RPM_RAW : 1;

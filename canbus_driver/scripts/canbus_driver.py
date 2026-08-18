@@ -42,9 +42,6 @@ class CanbusDriver(Node):
         # Seconds without a topic message before the motor is zeroed (watchdog)
         self.declare_parameter('cmd_timeout_s', 0.1)
         self.declare_parameter('send_rate_hz', 10.0)
-        self.declare_parameter('pwm_max_duty', 523)
-        self.declare_parameter('max_speed', 300)
-        self.declare_parameter('min_speed', 150)
         self.declare_parameter('max_steering', 1000)
 
         self.dbc_path         = self.get_parameter('dbc_path').get_parameter_value().string_value
@@ -52,17 +49,14 @@ class CanbusDriver(Node):
         self.node_id          = self.get_parameter('node_id').get_parameter_value().integer_value
         self._cmd_timeout     = self.get_parameter('cmd_timeout_s').get_parameter_value().double_value
         self.send_rate_hz     = self.get_parameter('send_rate_hz').get_parameter_value().double_value
-        self.pwm_max_duty     = self.get_parameter('pwm_max_duty').get_parameter_value().integer_value
-        self.max_speed        = self.get_parameter('max_speed').get_parameter_value().integer_value
-        self.min_speed        = self.get_parameter('min_speed').get_parameter_value().integer_value
         self.max_steering     = self.get_parameter('max_steering').get_parameter_value().integer_value
 
         self.art_cmd        = 0    
         self.last_art_cmd   = 0
         self._last_cmd_time = None  # time.monotonic() of last received message
 
-        # PWM channel watchdog state
-        self._pwm_cmd       = 0
+        # PWM / Velocity channel watchdog state (target velocity in m/s)
+        self._pwm_cmd       = 0.0
         self._last_pwm_time = None
 
         self.blocked_state = False
@@ -79,7 +73,6 @@ class CanbusDriver(Node):
 
         # SDO CAN IDs (computed from node_id at runtime)
         self.sdo_tx_id   = 0x600 + self.node_id   # request  (master → slave)
-    
 
         self.sdo_rx_id   = 0x580 + self.node_id   # response (slave  → master)
         self._send_count = 0
@@ -129,37 +122,19 @@ class CanbusDriver(Node):
         self.yaw_pub     = self.create_publisher(Int32, 'sensor/yaw', 10)
 
     def _block_steering_callback(self, msg : Bool) -> None:
-
         self.blocked_state = msg.data
-
 
     def _twist_callback(self, msg: Twist) -> None:
         # Articulation is controlled in position from -1000 to 1000
-
-        if (self.blocked_state):
+        if self.blocked_state:
             self.art_cmd = self.last_art_cmd
-        
         else:
-            self.art_cmd        = msg.angular.z * self.max_steering
+            self.art_cmd      = msg.angular.z * self.max_steering
             self.last_art_cmd = self.art_cmd
 
+        # Direct velocity setpoint in m/s (32-bit float sent over CAN)
+        self._pwm_cmd = float(msg.linear.x)
 
-        # Signed: negative linear.x → reverse (ESP32 drives GPIO 25 HIGH and
-        # takes fabs() of this value for the PWM duty)
-        
-        lin = msg.linear.x
-        joystick_deadzone = 0.3
-
-        if lin == 0.0:
-            self._pwm_cmd = 0
-        else:
-            sign = 1 if lin > 0 else -1
-            mag = abs(lin)
-            scaled = (mag - joystick_deadzone) / (1.0 - joystick_deadzone)
-            scaled = max(0.0, min(1.0, scaled))  # clamp
-            self._pwm_cmd = sign * (self.min_speed + scaled * (self.max_speed - self.min_speed))
-
-        
         self._last_cmd_time = time.monotonic()
         self._last_pwm_time = time.monotonic()
 
@@ -180,15 +155,16 @@ class CanbusDriver(Node):
 
     def _send_pwm(self) -> None:
         """
-        Formats the velocity commands from /cmd_vel to fit the duty cycle format fit for the esp32
+        Formats the linear velocity command (m/s) from /cmd_vel into a 4-byte IEEE-754 float CAN frame for the ESP32.
         """
         stale = (
             self._last_pwm_time is None
             or (time.monotonic() - self._last_pwm_time) > self._cmd_timeout
         )
-        value = 0 if stale else self._pwm_cmd
+        value = 0.0 if stale else self._pwm_cmd
 
-        payload = self.pwm_msg.encode({'Duty_Value': value})
+        # Encode 4-byte float signal 'Velocity_Target'
+        payload = self.pwm_msg.encode({'Velocity_Target': value})
 
         self._send_can(payload, self.pwm_msg.frame_id)
 
@@ -219,7 +195,6 @@ class CanbusDriver(Node):
                 if len(raw.data) == 4:
                     rpm = self.encoder_msg.decode(raw.data)['RPM_RAW']
 
-                
                 speed_msg = Float32()
                 speed_msg.data = rpm
                 self.speed_pub.publish(speed_msg)
@@ -251,9 +226,10 @@ class CanbusDriver(Node):
                         f"SDO ABORT ← 0x{self.sdo_rx_id:03X} "
                         f"0x{code:08X} ({hint}) raw=[{raw.data.hex(' ')}]"
                     )
-                
 
     def destroy_node(self):
+        self._pwm_cmd = 0.0
+        self._send_pwm()
         self.bus.shutdown()
         super().destroy_node()
 

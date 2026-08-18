@@ -1,0 +1,157 @@
+VERSION "1.0 - Rebuilt from FORT VSC Hardware Manual 935-0003 Rev C, Section 8 (CAN-J1939 Protocol)"
+
+NS_ : 
+    NS_DESC_
+    CM_
+    BA_DEF_
+    BA_
+    VAL_
+    CAT_DEF_
+    CAT_
+    FILTER
+    BA_DEF_DEF_
+    EV_DATA_
+    ENVVAR_DATA_
+    SGTYPE_
+    SGTYPE_VAL_
+    BA_DEF_SGTYPE_
+    BA_SGTYPE_
+    SIG_TYPE_REF_
+    VAL_TABLE_
+    SIG_GROUP_
+    SIG_VALTYPE_
+    SIGTYPE_VALTYPE_
+    BO_TX_BU_
+    BA_DEF_REL_
+    BA_REL_
+    BA_DEF_DEF_REL_
+    BU_SG_REL_
+    BU_EV_REL_
+    BU_BO_REL_
+    SG_MUL_VAL_
+BS_:
+BU_: VSC ROS_Host
+
+BO_ 2365445683 VSC_LeftJoystickBasic: 8 VSC
+ SG_ LeftX_NeutralStatus : 0|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftX_NegativeStatus : 2|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftX_PositiveStatus : 4|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftX_Magnitude : 6|10@1+ (1,0) [0|1023] "" ROS_Host
+ SG_ LeftY_NeutralStatus : 16|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftY_NegativeStatus : 18|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftY_PositiveStatus : 20|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftY_Magnitude : 22|10@1+ (1,0) [0|1023] "" ROS_Host
+ SG_ LeftDPad_DownStatus : 40|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftDPad_RightStatus : 42|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftDPad_UpStatus : 44|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftDPad_LeftStatus : 46|2@1+ (1,0) [0|3] "" ROS_Host
+
+BO_ 2365445939 VSC_LeftJoystickExtended: 8 VSC
+ SG_ LeftZ_NeutralStatus : 0|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftZ_NegativeStatus : 2|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftZ_PositiveStatus : 4|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ LeftZ_Magnitude : 6|10@1+ (1,0) [0|1023] "" ROS_Host
+
+BO_ 2365446196 VSC_RightJoystickBasic: 8 VSC
+ SG_ RightX_NeutralStatus : 0|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightX_NegativeStatus : 2|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightX_PositiveStatus : 4|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightX_Magnitude : 6|10@1+ (1,0) [0|1023] "" ROS_Host
+ SG_ RightY_NeutralStatus : 16|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightY_NegativeStatus : 18|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightY_PositiveStatus : 20|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightY_Magnitude : 22|10@1+ (1,0) [0|1023] "" ROS_Host
+ SG_ Button4Status : 40|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ Button3Status : 42|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ Button2Status : 44|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ Button1Status : 46|2@1+ (1,0) [0|3] "" ROS_Host
+
+BO_ 2365446452 VSC_RightJoystickExtended: 8 VSC
+ SG_ RightZ_NeutralStatus : 0|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightZ_NegativeStatus : 2|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightZ_PositiveStatus : 4|2@1+ (1,0) [0|3] "" ROS_Host
+ SG_ RightZ_Magnitude : 6|10@1+ (1,0) [0|1023] "" ROS_Host
+
+BO_ 2365450241 VSC_Heartbeat: 8 VSC
+ SG_ VSCMode : 0|8@1+ (1,0) [0|255] "" ROS_Host
+ SG_ AutonomyMode : 8|8@1+ (1,0) [0|2] "" ROS_Host
+ SG_ EStopIndication : 16|32@1+ (1,0) [0|4294967295] "" ROS_Host
+
+BO_ 2365450337 VSC_RemoteStatus: 8 VSC
+ SG_ BatteryLevel : 0|8@1+ (1,0) [0|100] "%" ROS_Host
+ SG_ BatteryCharging : 8|8@1+ (1,0) [0|1] "" ROS_Host
+ SG_ ConnectionStrengthVSC : 16|8@1+ (1,0) [0|2] "" ROS_Host
+ SG_ ConnectionStrengthSRC : 24|8@1+ (1,0) [0|2] "" ROS_Host
+
+BO_ 2365450496 ROS_UserFeedbackValue: 5 ROS_Host
+ SG_ UserFeedbackKey : 0|8@1+ (1,0) [0|99] "" VSC
+ SG_ UserFeedbackValue : 8|32@1- (1,0) [-2147483648|2147483647] "" VSC
+
+BO_ 2365450752 ROS_UserFeedbackString: 8 ROS_Host
+ SG_ StringFeedbackKey : 0|8@1+ (1,0) [0|99] "" VSC
+ SG_ StringSegment : 8|8@1+ (1,0) [0|2] "" VSC
+ SG_ StringChars : 16|48@1+ (1,0) [0|281474976710655] "" VSC
+
+CM_ BO_ 2365445683 "Left Joystick - J1939 Basic Joystick Message 1 (From VSC). Manual sec 8.2.1, real CAN ID 0x0CFDD633, ~16 Hz.";
+CM_ BO_ 2365445939 "Left Joystick - J1939 Extended Joystick Message 1 (From VSC), Z axis only. Manual sec 8.2.2, real CAN ID 0x0CFDD733, ~16 Hz.";
+CM_ BO_ 2365446196 "Right Joystick - J1939 Basic Joystick Message 2 (From VSC). Manual sec 8.2.3, real CAN ID 0x0CFDD834, ~16 Hz. NOTE: manual does not define an explicit bit layout for the numbered buttons (1-4) on this message; Button1-4Status are modeled by analogy to the documented D-Pad status layout (Table 47/48) and should be verified against a live capture.";
+CM_ BO_ 2365446452 "Right Joystick - J1939 Extended Joystick Message 2 (From VSC), Z axis only. Manual sec 8.2.4, real CAN ID 0x0CFDD934, ~16 Hz.";
+CM_ BO_ 2365450241 "Heartbeat - J1939 Custom Message (From VSC). Manual sec 8.2.6, real CAN ID 0x0CFDE801, 10 Hz.";
+CM_ BO_ 2365450337 "Remote Status - J1939 Custom Message (From VSC). Manual sec 8.2.5, real CAN ID 0x0CFDE861, 1 Hz. Bytes 4-5 reserved, bytes 6-7 always 0x00 (not modeled as signals).";
+CM_ BO_ 2365450496 "User Feedback Value - J1939 Custom Message (To VSC). Manual sec 8.2.7, real CAN ID 0x0CFDE900, aperiodic max 10 Hz.";
+CM_ BO_ 2365450752 "User Feedback String - J1939 Custom Message (To VSC). Manual sec 8.2.8, real CAN ID 0x0CFDEA00, aperiodic max 10 Hz. StringChars is 6 raw ASCII characters packed big-endian-in-payload; decode byte-by-byte in application code rather than relying on the raw integer value.";
+
+CM_ SG_ 2365445683 LeftX_Magnitude "10-bit raw joystick magnitude (0-1023). Direction/validity given by the paired NeutralStatus/NegativeStatus/PositiveStatus signals, not by sign.";
+CM_ SG_ 2365445683 LeftX_NeutralStatus "0=NotSet 1=Set 2=Error 3=Unavailable. When Set, axis is centered and Magnitude should be ignored.";
+CM_ SG_ 2365445683 LeftX_NegativeStatus "0=NotSet 1=Set 2=Error 3=Unavailable. When Set, Magnitude represents a negative-direction deflection.";
+CM_ SG_ 2365445683 LeftX_PositiveStatus "0=NotSet 1=Set 2=Error 3=Unavailable. When Set, Magnitude represents a positive-direction deflection.";
+CM_ SG_ 2365450241 VSCMode "See Table 12 in manual: 0x04=Local 0x06=Remote 0x09=Operational 0x0A=Menu 0x0B=Pause.";
+CM_ SG_ 2365450241 AutonomyMode "0=User Control 1=Shared Control 2=Autonomous Control.";
+CM_ SG_ 2365450241 EStopIndication "0=OK, >0=E-Stop Active. Each bit represents a distinct E-Stop source.";
+CM_ SG_ 2365450337 ConnectionStrengthVSC "0=Low(intermittent, possibly disconnected) 1=Medium 2=High.";
+
+VAL_TABLE_ VSC_JoystickStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_TABLE_ VSC_AutonomyModeTable 2 "AutonomousControl" 1 "SharedControl" 0 "UserControl";
+VAL_TABLE_ VSC_ModeTable 11 "Pause" 10 "Menu" 9 "Operational" 6 "Remote" 4 "Local";
+
+VAL_ 2365445683 LeftX_NeutralStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftX_NegativeStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftX_PositiveStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftY_NeutralStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftY_NegativeStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftY_PositiveStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftDPad_DownStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftDPad_RightStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftDPad_UpStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445683 LeftDPad_LeftStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445939 LeftZ_NeutralStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445939 LeftZ_NegativeStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365445939 LeftZ_PositiveStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 RightX_NeutralStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 RightX_NegativeStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 RightX_PositiveStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 RightY_NeutralStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 RightY_NegativeStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 RightY_PositiveStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 Button1Status 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 Button2Status 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 Button3Status 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446196 Button4Status 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446452 RightZ_NeutralStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446452 RightZ_NegativeStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365446452 RightZ_PositiveStatus 3 "Unavailable" 2 "Error" 1 "Set" 0 "NotSet";
+VAL_ 2365450241 VSCMode 11 "Pause" 10 "Menu" 9 "Operational" 6 "Remote" 4 "Local";
+VAL_ 2365450241 AutonomyMode 2 "AutonomousControl" 1 "SharedControl" 0 "UserControl";
+VAL_ 2365450337 BatteryCharging 1 "Charging" 0 "NotCharging";
+VAL_ 2365450337 ConnectionStrengthVSC 2 "High" 1 "Medium" 0 "Low";
+
+BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN","reserved","J1939PGN";
+BA_DEF_DEF_ "VFrameFormat" "J1939PGN";
+BA_ "VFrameFormat" BO_ 2365445683 1;
+BA_ "VFrameFormat" BO_ 2365445939 1;
+BA_ "VFrameFormat" BO_ 2365446196 1;
+BA_ "VFrameFormat" BO_ 2365446452 1;
+BA_ "VFrameFormat" BO_ 2365450241 1;
+BA_ "VFrameFormat" BO_ 2365450337 1;
+BA_ "VFrameFormat" BO_ 2365450496 1;
+BA_ "VFrameFormat" BO_ 2365450752 1;

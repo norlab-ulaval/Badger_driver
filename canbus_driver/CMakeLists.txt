@@ -35,6 +35,13 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(PROGRAMS
+  scripts/fort_can_to_joy.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+
+
 # Install launch and config files
 install(DIRECTORY
   launch config

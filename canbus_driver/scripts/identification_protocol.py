@@ -31,8 +31,8 @@ class Identification(Node):
     def pub_speed(self):
         msg = Twist()
 
-        msg.linear.x = float(self.counter)
-        # msg.linear.x = 0.0
+        # msg.linear.x = float(self.counter)
+        msg.linear.x = 2.0
         msg.linear.y = 0.0   
         msg.linear.z = 0.0   
         
