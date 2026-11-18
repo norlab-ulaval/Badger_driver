@@ -23,11 +23,11 @@ static _Atomic float g_cmd_velocity_mps = 0.0f;
 static _Atomic bool g_estop_active = true;
 static _Atomic bool g_recovery_mode = false;
 static _Atomic bool g_open_loop_mode_enabled = false;
-
+static _Atomic bool g_turbo_active = false;
 static _Atomic uint8_t g_vehicle_soc = 0;
 static _Atomic int32_t g_recovery_steering_ticks = 0;
 static _Atomic bool g_heartbeat_seen = false;
-
+static _Atomic bool g_deadman_pressed = false;
 static _Atomic uint8_t g_connection_vsc;
 
 // Encoder hardware unit
@@ -125,6 +125,17 @@ static void task_hardware_loop(void *arg) {
       continue;
     }
 
+    // Deadman switch: right Z finger stick must be pulled UP to allow motion.
+    // Released or watchdog-expired -> zero command, reset PID, hold stopped.
+    if (!atomic_load(&g_deadman_pressed)) {   
+      pwm_drive(&vel_pid, 0, true); 
+      pid_reset(&vel_pid);    
+      filt_initialized = false;
+      vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CTRL_LOOP_PERIOD_MS));
+      continue;
+    }
+
+    
     float target_mps_raw = atomic_load(&g_cmd_velocity_mps);
     float measured_mps = rpm_filt * RPM_TO_MPS;
 
@@ -212,6 +223,7 @@ static void task_can(void *arg) {
   twai_message_t rx_msg;
   uint8_t tx_divider = 0;
   uint8_t pwm_watchdog = 0;
+  uint8_t deadman_watchdog = 0;
   uint8_t steering_tx_divider = 0;
   uint16_t fort_display_divider = 0;
 
@@ -367,13 +379,16 @@ static void task_can(void *arg) {
 
             fort_joystick_read(rx_msg, &right_y);
 
+            float speed_cap = atomic_load(&g_turbo_active)
+                                  ? JOYSTICK_MAX_SPEED_MPS
+                                  : JOYSTICK_WALK_SPEED_MPS;
             float velocity_mps = 0.0f;
             if (right_y.neutral_status != JOYSTICK_STATUS_SET &&
                 right_y.magnitude != 0) {
               if (right_y.negative_status == JOYSTICK_STATUS_SET) {
-                velocity_mps = -right_y.magnitude * JOYSTICK_MAX_SPEED_MPS;
+                velocity_mps = -right_y.magnitude * speed_cap;
               } else if (right_y.positive_status == JOYSTICK_STATUS_SET) {
-                velocity_mps = right_y.magnitude * JOYSTICK_MAX_SPEED_MPS;
+                velocity_mps = right_y.magnitude * speed_cap;
               }
             }
             atomic_store(&g_cmd_velocity_mps, velocity_mps);
@@ -453,11 +468,61 @@ static void task_can(void *arg) {
                (rx_msg.flags & TWAI_MSG_FLAG_EXTD) &&
                rx_msg.data_length_code >= 3) {
 
-        uint8_t conn_stength_vsc = rx_msg.data[2];
-        atomic_store(&g_connection_vsc, conn_stength_vsc);
+                uint8_t conn_stength_vsc = rx_msg.data[2];
+                atomic_store(&g_connection_vsc, conn_stength_vsc);
+      }
+      // F. FORT VSC Right Z-axis (finger stick) - Deadman Switch
+      // Pulling the finger stick UP (positive direction) enables motion.
+      // If this message stops arriving the deadman_watchdog clears the flag.
+      else if (rx_msg.identifier == CAN_ID_VSC_RIGHT_JOYSTICK_EXT &&
+               (rx_msg.flags & TWAI_MSG_FLAG_EXTD) &&
+               rx_msg.data_length_code >= (RIGHT_JOY_Z_MAG_HIGH_BYTE + 1)) {
+
+        fort_joy_state right_z = {
+            .status_byte     = RIGHT_JOY_Z_STATUS_BYTE,
+            .neutral_status  = 0,
+            .positive_status = 0,
+            .negative_status = 0,
+            .magnitude       = 0.0f,
+            .neutral_shift   = RIGHT_JOY_Z_NEUTRAL_SHIFT,
+            .positive_shift  = RIGHT_JOY_Z_POSITIVE_SHIFT,
+            .negative_shift  = RIGHT_JOY_Z_NEGATIVE_SHIFT,
+            .status_mask     = RIGHT_JOY_Z_STATUS_MASK,
+            .mag_shift       = RIGHT_JOY_Z_MAG_LOW_SHIFT,
+            .mag_byte        = RIGHT_JOY_Z_MAG_HIGH_BYTE,
+        };
+
+        fort_joystick_read(rx_msg, &right_z);
+        atomic_store(&g_deadman_pressed,
+                     right_z.positive_status == JOYSTICK_STATUS_SET);
+        deadman_watchdog = 0;
+      }
+      // G. FORT VSC Left Z-axis (finger stick) - Turbo Button
+      // Pulling the finger stick UP (positive direction) enables turbo speed.
+      else if (rx_msg.identifier == CAN_ID_VSC_LEFT_JOYSTICK_EXT &&
+               (rx_msg.flags & TWAI_MSG_FLAG_EXTD) &&
+               rx_msg.data_length_code >= (LEFT_JOY_Z_MAG_HIGH_BYTE + 1)) {
+
+        fort_joy_state left_z = {
+            .status_byte     = LEFT_JOY_Z_STATUS_BYTE,
+            .neutral_status  = 0,
+            .positive_status = 0,
+            .negative_status = 0,
+            .magnitude       = 0.0f,
+            .neutral_shift   = LEFT_JOY_Z_NEUTRAL_SHIFT,
+            .positive_shift  = LEFT_JOY_Z_POSITIVE_SHIFT,
+            .negative_shift  = LEFT_JOY_Z_NEGATIVE_SHIFT,
+            .status_mask     = LEFT_JOY_Z_STATUS_MASK,
+            .mag_shift       = LEFT_JOY_Z_MAG_LOW_SHIFT,
+            .mag_byte        = LEFT_JOY_Z_MAG_HIGH_BYTE,
+        };
+
+        fort_joystick_read(rx_msg, &left_z);
+        atomic_store(&g_turbo_active,
+                     left_z.positive_status == JOYSTICK_STATUS_SET);
       }
     }
-
+      
     // 3. CAN bus Transmission
     twai_message_t encoder_msg = {
         .identifier = CAN_ID_ENCODER_TX,
@@ -512,6 +577,11 @@ static void task_can(void *arg) {
       atomic_store(&g_estop_active, hw_estop_active || cmd_watchdog_expired);
       pwm_watchdog = 0;
     }
+    if (++deadman_watchdog >= PWM_WATCHDOG_POLLS) {
+      atomic_store(&g_deadman_pressed, false);
+      deadman_watchdog = 0;
+    }
+  
 
     vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(10));
   }

@@ -25,6 +25,8 @@
 
 #define CAN_ID_VSC_LEFT_JOYSTICK_DPAD 0x0CFDD633UL
 #define CAN_ID_VSC_RIGHT_JOYSTICK_BUTTONS 0x0CFDD834UL
+#define CAN_ID_VSC_RIGHT_JOYSTICK_EXT  0x0CFDD934UL
+#define CAN_ID_VSC_LEFT_JOYSTICK_EXT  0x0CFDD733UL  
 #define CAN_ID_VSC_HEARTBEAT 0x0CFDE801UL
 #define CAN_ID_VSC_REMOTE_STATUS 0x0CFDE861UL
 #define CAN_ID_VSC_USER_FB_VALUE 0x0CFDE900UL
@@ -66,10 +68,31 @@
 #define RIGHT_JOY_X_MAG_HIGH_BYTE 1
 #define RIGHT_JOY_X_MAG_MAX 1023u
 
+// Right Joystick Z Axis: Corresponds the switch on the backside of the right joystick
+
+#define RIGHT_JOY_Z_STATUS_BYTE        0
+#define RIGHT_JOY_Z_NEUTRAL_SHIFT      0
+#define RIGHT_JOY_Z_NEGATIVE_SHIFT     2
+#define RIGHT_JOY_Z_POSITIVE_SHIFT     4
+#define RIGHT_JOY_Z_STATUS_MASK        0x3u
+#define RIGHT_JOY_Z_MAG_LOW_SHIFT      6
+#define RIGHT_JOY_Z_MAG_HIGH_BYTE      1
+
+// Left Joystick Z Axis: Corresponds the switch on the backside of the left joystick
+
+#define LEFT_JOY_Z_STATUS_BYTE    0
+#define LEFT_JOY_Z_NEUTRAL_SHIFT  0
+#define LEFT_JOY_Z_NEGATIVE_SHIFT 2
+#define LEFT_JOY_Z_POSITIVE_SHIFT 4
+#define LEFT_JOY_Z_STATUS_MASK    0x3u
+#define LEFT_JOY_Z_MAG_LOW_SHIFT  6
+#define LEFT_JOY_Z_MAG_HIGH_BYTE  1
+
 // Fort Joystick Constants
 #define JOY_MAG_MAX 1023u
 #define JOYSTICK_STATUS_SET 1u
-#define JOYSTICK_MAX_SPEED_MPS 3.0f
+#define JOYSTICK_MAX_SPEED_MPS 3.0f      // Maximum speed (turbo mode) in meters per second
+#define JOYSTICK_WALK_SPEED_MPS   1.39f  // Normal (non-turbo) speed cap
 
 // Open-Loop Accumulation Step Rate (ticks per frame at full deflection)
 #define OPEN_LOOP_TICKS 50
