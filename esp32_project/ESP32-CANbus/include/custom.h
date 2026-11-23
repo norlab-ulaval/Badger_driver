@@ -93,7 +93,7 @@
 #define JOYSTICK_STATUS_SET 1u
 #define JOYSTICK_MAX_SPEED_MPS 3.0f      // Maximum speed (turbo mode) in meters per second
 #define JOYSTICK_WALK_SPEED_MPS   1.39f  // Normal (non-turbo) speed cap
-
+#define FORT_STICK_FULL_SCALE 0.85f
 // Open-Loop Accumulation Step Rate (ticks per frame at full deflection)
 #define OPEN_LOOP_TICKS 50
 
