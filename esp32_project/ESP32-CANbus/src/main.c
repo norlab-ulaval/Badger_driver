@@ -46,6 +46,11 @@ static void IRAM_ATTR z_isr_handler(void *arg) {
   atomic_store(&g_z_index_flag, true);
 }
 
+static inline float fort_stick_scale(float magnitude) {
+  float v = magnitude / FORT_STICK_FULL_SCALE;
+  return (v > 1.0f) ? 1.0f : v;
+}
+
 // ---------------------------------------------------------------------------
 // Core 1 – Encoder debugging & Closed-Loop PWM Task
 // ---------------------------------------------------------------------------
@@ -127,7 +132,7 @@ static void task_hardware_loop(void *arg) {
 
     // Deadman switch: right Z finger stick must be pulled UP to allow motion.
     // Released or watchdog-expired -> zero command, reset PID, hold stopped.
-    if (!atomic_load(&g_deadman_pressed)) {   
+    if (!atomic_load(&g_deadman_pressed) && atomic_load(&g_recovery_mode)) {   
       pwm_drive(&vel_pid, 0, true); 
       pid_reset(&vel_pid);    
       filt_initialized = false;
@@ -363,14 +368,6 @@ static void task_can(void *arg) {
           }
         }
 
-        // Toggle Open Loop Mode (Button1)
-        if (rx_msg.data_length_code >= (OPEN_LOOP_LATCH_BYTE + 1)) {
-          latch_toggle_update(rx_msg, OPEN_LOOP_LATCH_BYTE,
-                              OPEN_LOOP_LATCH_BIT_OFFSET, OPEN_LOOP_LATCH_MASK,
-                              LATCH_SET_VALUE, &prev_open_loop_button,
-                              &g_open_loop_mode_enabled);
-        }
-
         // Processes the FORT joystick in recovery mode
 
         if (atomic_load(&g_recovery_mode)) {
@@ -386,9 +383,9 @@ static void task_can(void *arg) {
             if (right_y.neutral_status != JOYSTICK_STATUS_SET &&
                 right_y.magnitude != 0) {
               if (right_y.negative_status == JOYSTICK_STATUS_SET) {
-                velocity_mps = -right_y.magnitude * speed_cap;
+                velocity_mps = -fort_stick_scale(right_y.magnitude) * speed_cap;
               } else if (right_y.positive_status == JOYSTICK_STATUS_SET) {
-                velocity_mps = right_y.magnitude * speed_cap;
+                velocity_mps = fort_stick_scale(right_y.magnitude) * speed_cap;
               }
             }
             atomic_store(&g_cmd_velocity_mps, velocity_mps);
@@ -398,50 +395,54 @@ static void task_can(void *arg) {
             pwm_watchdog = 0;
           }
 
-          // Process Right X axis steering target
-          if (rx_msg.data_length_code >= (RIGHT_JOY_X_MAG_HIGH_BYTE + 1)) {
-
-            fort_joystick_read(rx_msg, &right_x);
-
-            if (atomic_load(&g_open_loop_mode_enabled)) {
-              // Open loop steering integrator
-              if (right_x.neutral_status != JOYSTICK_STATUS_SET &&
-                  right_x.magnitude != 0) {
-
-                int32_t step = (int32_t)lroundf(right_x.magnitude *
-                                                (float)OPEN_LOOP_TICKS);
-
-                if (right_x.negative_status == JOYSTICK_STATUS_SET) {
-                  open_loop_target =
-                      (open_loop_target + step > ROBOTEQ_MAX_TICKS)
-                          ? ROBOTEQ_MAX_TICKS
-                          : open_loop_target + step;
-                } else if (right_x.positive_status == JOYSTICK_STATUS_SET) {
-                  open_loop_target =
-                      (open_loop_target - step < -ROBOTEQ_MAX_TICKS)
-                          ? -ROBOTEQ_MAX_TICKS
-                          : open_loop_target - step;
+           // Process Right X axis steering target
+            if (rx_msg.data_length_code >= (RIGHT_JOY_X_MAG_HIGH_BYTE + 1)) {
+            
+              fort_joystick_read(rx_msg, &right_x);
+            
+              if (!atomic_load(&g_deadman_pressed)) {
+                // Deadman released: ignore the stick, hold the current hitch target.       
+              } else if (atomic_load(&g_open_loop_mode_enabled)) {
+                // Open loop steering integrator
+                if (right_x.neutral_status != JOYSTICK_STATUS_SET &&
+                    right_x.magnitude != 0) { 
+                    
+                  int32_t step = (int32_t)lroundf(right_x.magnitude *
+                                                  (float)OPEN_LOOP_TICKS);
+                                                  
+                  if (right_x.negative_status == JOYSTICK_STATUS_SET) {
+                    open_loop_target =
+                        (open_loop_target + step > ROBOTEQ_MAX_TICKS)
+                            ? ROBOTEQ_MAX_TICKS
+                            : open_loop_target + step;
+                  } else if (right_x.positive_status == JOYSTICK_STATUS_SET) {
+                    open_loop_target =
+                        (open_loop_target - step < -ROBOTEQ_MAX_TICKS)
+                            ? -ROBOTEQ_MAX_TICKS
+                            : open_loop_target - step;
+                  }         
                 }
+                atomic_store(&g_recovery_steering_ticks, open_loop_target);
+              } else {
+                // Closed loop steering proportional
+                int32_t steering_ticks = 0;
+                if (right_x.neutral_status != JOYSTICK_STATUS_SET &&
+                    right_x.magnitude != 0.0f) {
+                    
+                  if (right_x.negative_status == JOYSTICK_STATUS_SET) {
+                    steering_ticks = (int32_t)lroundf(
+                        fort_stick_scale(right_x.magnitude) *
+  (float)ROBOTEQ_STEERING_MAX_TICKS);
+                  } else if (right_x.positive_status == JOYSTICK_STATUS_SET) {
+                    steering_ticks = -(int32_t)lroundf(
+                        fort_stick_scale(right_x.magnitude) *
+  (float)ROBOTEQ_STEERING_MAX_TICKS);
+                  }
+                } 
+                open_loop_target = steering_ticks;
+                atomic_store(&g_recovery_steering_ticks, steering_ticks);
               }
-              atomic_store(&g_recovery_steering_ticks, open_loop_target);
-            } else {
-              // Closed loop steering proportional
-              int32_t steering_ticks = 0;
-              if (right_x.neutral_status != JOYSTICK_STATUS_SET &&
-                  right_x.magnitude != 0.0f) {
-
-                if (right_x.negative_status == JOYSTICK_STATUS_SET) {
-                  steering_ticks = (int32_t)lroundf(
-                      right_x.magnitude * (float)ROBOTEQ_STEERING_MAX_TICKS);
-                } else if (right_x.positive_status == JOYSTICK_STATUS_SET) {
-                  steering_ticks = -(int32_t)lroundf(
-                      right_x.magnitude * (float)ROBOTEQ_STEERING_MAX_TICKS);
-                }
-              }
-              open_loop_target = steering_ticks;
-              atomic_store(&g_recovery_steering_ticks, steering_ticks);
-            }
-          }
+            }   
         }
       }
       // C. ROS Velocity Command Frame
@@ -493,9 +494,16 @@ static void task_can(void *arg) {
         };
 
         fort_joystick_read(rx_msg, &right_z);
-        atomic_store(&g_deadman_pressed,
+                      atomic_store(&g_deadman_pressed,
                      right_z.positive_status == JOYSTICK_STATUS_SET);
         deadman_watchdog = 0;
+
+        // Toggle Open Loop Mode (right Z finger stick pulled DOWN)
+        latch_toggle_update(rx_msg, RIGHT_JOY_Z_STATUS_BYTE,
+                            RIGHT_JOY_Z_NEGATIVE_SHIFT, RIGHT_JOY_Z_STATUS_MASK,
+                            JOYSTICK_STATUS_SET, &prev_open_loop_button,
+                            &g_open_loop_mode_enabled);
+
       }
       // G. FORT VSC Left Z-axis (finger stick) - Turbo Button
       // Pulling the finger stick UP (positive direction) enables turbo speed.
